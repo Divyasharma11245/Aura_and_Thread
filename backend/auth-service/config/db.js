@@ -8,7 +8,7 @@ const MONGO_URI = process.env.MONGO_URI;
 const connectDb = async () => {
   try {
     await mongoose.connect(MONGO_URI);
-    console.log("Connected to mongodb!");
+    console.log(`mongodb connected successfully!`);
   } catch (e) {
     console.log(e);
   }
