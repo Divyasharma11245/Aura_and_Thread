@@ -2,9 +2,12 @@ import User from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
 import { verificationOTPTemplate } from "../templates/verificationOTPTemplate.js";
 import { sendEmail } from "../services/email.services.js";
 import { resetPasswordOTPTemplate } from "../templates/resetPasswordOTPTemplate.js";
+
+dotenv.config({ path: "../.env" });
 
 export const signup = async (req, res) => {
   try {
@@ -302,13 +305,126 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// export const changePassword = async (req, res) => {
-//   try {
-//     const user =
-//   } catch (e) {
-//     return res.status(400).json({
-//       success: false,
-//       message: "Internal server error",
-//     });
-//   }
-// };
+export const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword, confirmedPassword } = req.body;
+    if (!oldPassword || !newPassword || !confirmedPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+    const user = await User.findOne({ _id: req.user._id });
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is incorrect",
+      });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        seccess: false,
+        message: "password must be of minimum 8 characters",
+      });
+    }
+    if (newPassword !== confirmedPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Confirmed password must be same",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+    return res.status(200).json({
+      success: true,
+      message: "Password changes successfully!",
+    });
+  } catch (e) {
+    return res.status(400).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const getUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user",
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "User find successfully!",
+    });
+  } catch (e) {
+    console.log(e);
+    return res.status(400).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const updateUser = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user",
+      });
+    }
+    if (name) user.name = name;
+    if (email) user.email = email;
+
+    await user.save();
+    return res.status(200).json({
+      success: true,
+      message: "User updated successfully",
+    });
+  } catch (e) {
+    console.log(e);
+    return res.status(400).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found!",
+      });
+    }
+    await User.deleteOne({ _id: req.user._id });
+    res.clearCookie("token");
+    return res.status(200).json({
+      success: true,
+      message: "user deleted successfully",
+    });
+  } catch (e) {
+    console.log(e);
+    return res.status(400).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
