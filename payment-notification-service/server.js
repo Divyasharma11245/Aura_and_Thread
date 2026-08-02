@@ -9,6 +9,11 @@ const app = express();
 
 app.use(helmet());
 app.use(cors());
+
+// IMPORTANT: Webhook route MUST receive express.raw BEFORE express.json()
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
+// Regular JSON parser for all other routes
 app.use(express.json());
 
 // Routes

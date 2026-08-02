@@ -1,19 +1,16 @@
 const amqp = require('amqplib');
 
-let connection = null;
-let channel = null;
-
 const connectRabbitMQ = async () => {
   try {
-    connection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost:5672');
-    channel = await connection.createChannel();
+    const rabbitUrl = process.env.RABBITMQ_URL || 'amqp://localhost';
+    const connection = await amqp.connect(rabbitUrl);
+    const channel = await connection.createChannel();
     console.log(' Connected to RabbitMQ');
     return { connection, channel };
   } catch (error) {
     console.error(' RabbitMQ Connection Error:', error.message);
+    return null; // Return null on error so destructuring won't break the app abruptly
   }
 };
 
-const getChannel = () => channel;
-
-module.exports = { connectRabbitMQ, getChannel };
+module.exports = { connectRabbitMQ };
