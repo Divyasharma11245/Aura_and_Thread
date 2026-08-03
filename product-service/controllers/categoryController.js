@@ -2,34 +2,45 @@ const Category = require("../models/category");
 const slugify = require("slugify");
 const createCategory = async (req, res) => {
   try {
-    const { name, brand, gender } = req.body;
-    if (!name || !brand || !gender) {
-      return res.status(400).json({
-        success: false,
-        message: "Please fill all required fields",
-      });
-    }
-    const slug = slugify(name, {
-      lower: true,
-      strict: true,
-    });
-    const existingcategory = await Category.findOne({ slug });
-    if (existingcategory) {
-      return res.status(400).json({
-        success: false,
-        message: "Category already exists",
-      });
-    }
-    const category = await Category.create({
-      name,
-      slug,
-      brand,
-      gender,
-    });
-    return res.status(400).json({
+    //   const { name, brand, gender } = req.body;
+    //   if (!name || !brand || !gender) {
+    //     return res.status(400).json({
+    //       success: false,
+    //       message: "Please fill all required fields",
+    //     });
+    //   }
+    //   const slug = slugify(name, {
+    //     lower: true,
+    //     strict: true,
+    //   });
+    //   const existingcategory = await Category.findOne({ slug });
+    //   if (existingcategory) {
+    //     return res.status(400).json({
+    //       success: false,
+    //       message: "Category already exists",
+    //     });
+    //   }
+    //   const category = await Category.insertMany({
+    //     name,
+    //     slug,
+    //     brand,
+    //     gender,
+    //   });
+    const categories = req.body;
+
+    const formattedCategories = categories.map((category) => ({
+      ...category,
+      slug: slugify(category.name, {
+        lower: true,
+        strict: true,
+      }),
+    }));
+
+    const savedCategories = await Category.insertMany(formattedCategories);
+    return res.status(201).json({
       success: true,
       message: "Category created successfully",
-      category,
+      savedCategories,
     });
   } catch (error) {
     console.log(error);
@@ -133,29 +144,73 @@ const updateCategory = async (req, res) => {
     });
   }
 };
-const deleteCategory = async(req,res)=>{
+const deleteCategory = async (req, res) => {
   try {
-      const {id} = req.params;
-      const category = Category.findById(id);
-      if(!category){
-        return res.status(404).json({
-          success:false,
-          message:"Category not found",
-        })
-      }
-      await Category.findByIdAndDelete(id);
-      return res.status(200).json({
-        success:true,
-        message:"Category deleted successfully",
-      })
+    const { id } = req.params;
+    const category = Category.findById(id);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+      });
+    }
+    await Category.findByIdAndDelete(id);
+    return res.status(200).json({
+      success: true,
+      message: "Category deleted successfully",
+    });
   } catch (error) {
     console.log(error);
     return res.status(500).json({
-      success:false,
-      message:error.message,
-    })
+      success: false,
+      message: error.message,
+    });
   }
-}
+};
+const searchCategory = async (req, res) => {
+  try {
+    const { keyword } = req.query;
+    if (!keyword) {
+      return res.status(400).json({
+        success: false,
+        message: "keyword is not defined",
+      });
+    }
+    const categories = await Category.find({
+      $or: [
+        {
+          name: {
+            $regex: keyword,
+            $options: "i",
+          },
+        },
+        {
+          brand: {
+            $regex: keyword,
+            $options: "i",
+          },
+        },
+        {
+          slug: {
+            $regex: keyword,
+            $options: "i",
+          },
+        },
+      ],
+    });
+    return res.status(200).json({
+      success: true,
+      totalCategories: categories.length,
+      categories,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      status: false,
+      message: error.message,
+    });
+  }
+};
 module.exports = {
   createCategory,
   getAllCategories,
