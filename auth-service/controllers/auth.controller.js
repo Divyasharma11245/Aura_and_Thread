@@ -85,6 +85,7 @@ export const verifyEmail = async (req, res) => {
     const user = await User.findOne({ email, verificationOTP: otp });
     if (!user) {
       return res.status(400).json({
+
         success: false,
         message: "Invalid email or OTP.",
       });
