@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const upload = require("../middlewares/multer");
 const {
   createProduct,
   getAllProducts,
@@ -10,12 +11,15 @@ const {
   getProductByCategory,
   searchProduct,
 } = require("../controllers/productController");
-router.get("/search",searchProduct);
-router.post("/create-product", createProduct);
-router.patch("/update-product/:id",updateProduct);
-router.delete("/delete-product/:id",deleteProduct);
+router.get("/search", searchProduct);
+router.post("/create-product",(req,res,next)=>{
+  console.log("req reached");
+  next();
+}, upload.array("images", 5), createProduct);
+router.patch("/update-product/:id", updateProduct);
+router.delete("/delete-product/:id", deleteProduct);
 router.get("/get-all-products", getAllProducts);
 router.get("/get-product/:id", getProduct);
-router.get("/get-product/:slug",getProductBySlug);
+router.get("/get-product/:slug", getProductBySlug);
 // router.get("/category/:slug",getProductByCategory);
 module.exports = router;

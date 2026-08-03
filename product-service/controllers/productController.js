@@ -2,6 +2,7 @@ const Product = require("../models/product");
 const Category = require("../models/category");
 const slugify = require("slugify");
 const product = require("../models/product");
+const cloudinary = require("../config/cloudinary");
 // const createProduct = async (req, res) => {
 //     try {
 
@@ -70,6 +71,9 @@ const product = require("../models/product");
 // };
 const createProduct = async (req, res) => {
   try {
+    console.log(req.body);
+    console.log(req.files);
+    console.log("start");
     const {
       name,
       shortDescription,
@@ -115,7 +119,19 @@ const createProduct = async (req, res) => {
     const discountedPrice = Math.round(
       ((originalPrice - sellingPrice) / originalPrice) * 100,
     );
+    
+    for (const file of req.files) {
+      const productImage = await cloudinary.uploader.upload(req.file.path, {
+        folder: "products",
+      });
+      images.push({
+        url: productImage.secure_url,
+        public_id: productImage.public_id,
+      });
+    }
 
+    fs.unlinkSync(file.path);
+    console.log(productImage);
     const product = await Product.create({
       name,
       slug,
@@ -125,7 +141,12 @@ const createProduct = async (req, res) => {
       originalPrice,
       sellingPrice,
       discountedPrice,
-      images,
+      images: [
+        {
+          url: productImage.secure_url,
+          public_id: productImage.public_id,
+        },
+      ],
       colors,
       sizes,
       stock,
