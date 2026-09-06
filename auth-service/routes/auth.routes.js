@@ -8,6 +8,8 @@ import {
   forgotPassword,
   resetPassword,
   changePassword,
+  getUser,
+  updateUser,
   deleteUser,
 } from "../controllers/auth.controller.js";
 
@@ -25,6 +27,8 @@ router.put("/reset-password", resetPassword);
 
 // Protected Routes
 router.put("/change-password", authMiddleware, changePassword);
+router.get("/profile", authMiddleware, getUser);
+router.put("/profile", authMiddleware, updateUser);
 router.delete("/deleteUser", authMiddleware, deleteUser);
 // router.post("/logout", authMiddleware, logout);
 

@@ -12,14 +12,10 @@ const {
   searchProduct,
 } = require("../controllers/productController");
 router.get("/search", searchProduct);
-router.post("/create-product",(req,res,next)=>{
-  console.log("req reached");
-  next();
-}, upload.array("images", 5), createProduct);
+router.post("/create-product", upload.array("images", 5), createProduct);
 router.patch("/update-product/:id", updateProduct);
 router.delete("/delete-product/:id", deleteProduct);
 router.get("/get-all-products", getAllProducts);
 router.get("/get-product/:id", getProduct);
-router.get("/get-product/:slug", getProductBySlug);
-// router.get("/category/:slug",getProductByCategory);
+router.get("/category/:slug", getProductByCategory);
 module.exports = router;

@@ -1,79 +1,26 @@
+const fs = require("fs/promises");
 const Product = require("../models/product");
 const Category = require("../models/category");
 const slugify = require("slugify");
-const product = require("../models/product");
 const cloudinary = require("../config/cloudinary");
-// const createProduct = async (req, res) => {
-//     try {
 
-//         const products = req.body;
+const parseArray = (value) => {
+  if (value === undefined || value === null || value === "") return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return value.split(",").map((item) => item.trim()).filter(Boolean);
+    }
+  }
+  return [value];
+};
 
-//         if (!Array.isArray(products) || products.length === 0) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "Please provide an array of products."
-//             });
-//         }
-
-//         const formattedProducts = [];
-
-//         for (const product of products) {
-
-//             const category = await Category.findById(product.category);
-
-//             if (!category) {
-//                 return res.status(404).json({
-//                     success: false,
-//                     message: `Category not found: ${product.category}`
-//                 });
-//             }
-
-//             formattedProducts.push({
-
-//                 ...product,
-
-//                 slug: slugify(product.name, {
-//                     lower: true,
-//                     strict: true
-//                 }),
-
-//                 discountPercentage: Math.round(
-//                     ((product.originalPrice - product.sellingPrice) /
-//                         product.originalPrice) * 100
-//                 ),
-
-//                 totalReviews: 0,
-
-//                 totalSold: 0
-
-//             });
-//         }
-
-//         const savedProducts = await Product.insertMany(formattedProducts);
-
-//         return res.status(201).json({
-//             success: true,
-//             message: "Products created successfully.",
-//             totalProducts: savedProducts.length,
-//             products: savedProducts
-//         });
-
-//     } catch (error) {
-
-//         console.log(error);
-
-//         return res.status(500).json({
-//             success: false,
-//             message: error.message
-//         });
-
-//     }
-// };
 const createProduct = async (req, res) => {
+  const uploadedFiles = req.files || [];
   try {
-    console.log(req.body);
-    console.log(req.files);
-    console.log("start");
     const {
       name,
       shortDescription,
@@ -81,7 +28,7 @@ const createProduct = async (req, res) => {
       category,
       originalPrice,
       sellingPrice,
-      images,
+      images: imageInput,
       colors,
       sizes,
       stock,
@@ -91,265 +38,112 @@ const createProduct = async (req, res) => {
       isNewArrival,
       status,
     } = req.body;
+
     if (
       !name ||
       !shortDescription ||
       !description ||
       !category ||
-      !originalPrice ||
-      !sellingPrice ||
-      !stock
+      originalPrice === undefined ||
+      sellingPrice === undefined ||
+      stock === undefined
     ) {
       return res.status(400).json({
         success: false,
         message: "Please fill all required fields",
       });
     }
+
     const categoryExists = await Category.findById(category);
     if (!categoryExists) {
-      return res.status(404).json({
-        success: false,
-        message: "Product already exixts",
-      });
-    }
-    const slug = slugify(name, {
-      lower: true,
-      strict: true,
-    });
-    const discountedPrice = Math.round(
-      ((originalPrice - sellingPrice) / originalPrice) * 100,
-    );
-    
-    for (const file of req.files) {
-      const productImage = await cloudinary.uploader.upload(req.file.path, {
-        folder: "products",
-      });
-      images.push({
-        url: productImage.secure_url,
-        public_id: productImage.public_id,
-      });
-    }
-
-    fs.unlinkSync(file.path);
-    console.log(productImage);
-    const product = await Product.create({
-      name,
-      slug,
-      shortDescription,
-      description,
-      category,
-      originalPrice,
-      sellingPrice,
-      discountedPrice,
-      images: [
-        {
-          url: productImage.secure_url,
-          public_id: productImage.public_id,
-        },
-      ],
-      colors,
-      sizes,
-      stock,
-      totalReviews: 0,
-      totalSold: 0,
-      isFeatured,
-      isTrending,
-      isBestSeller,
-      isNewArrival,
-      status,
-    });
-    res.status(201).json({
-      success: true,
-      message: "Product Created Successfully",
-      product,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-const getAllProducts = async (req, res) => {
-  try {
-    const products = await Product.find()
-      .populate("category")
-      .sort({ createdAt: -1 });
-    if (product.length === 0) {
-      return res.status(404).json({
-        success: false,
-        messsage: "No product is there",
-      });
-    }
-    return res.status(201).json({
-      success: true,
-      totalProducts: products.length,
-      products,
-    });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-const getProduct = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const product = await Product.findById(id).populate("category");
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-    return res.status(200).json({
-      message: "User fetched successfully",
-      product,
-    });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-const updateProduct = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      name,
-      shortDescription,
-      description,
-      category,
-      brand,
-      originalPrice,
-      discountedPrice,
-      stock,
-    } = req.body;
-    const product = await Product.findById(id);
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-    if (category) {
-      const existingCategory = await Category.findById(category);
-      if (!existingCategory) {
-        return res.status(404).json({
-          success: false,
-          message: "Category not found",
-        });
-      }
-      product.category = category;
-    }
-    if (name) {
-      product.name = name;
-      product.slug = slugify(name, {
-        lower: true,
-        strict: true,
-      });
-    }
-    if (shortDescription) {
-      product.shortDescription = shortDescription;
-    }
-    if (description) {
-      product.description = description;
-    }
-    if (brand) {
-      product.brand = brand;
-    }
-    if (originalPrice !== undefined) {
-      product.originalPrice = originalPrice;
-    }
-    if (discountedPrice !== undefined) {
-      product.discountedPrice = discountedPrice;
-    }
-    if (originalPrice !== undefined || discountedPrice !== undefined) {
-      product.discountedPrice = Math.round(
-        ((product.originalPrice - product.discountPrice) /
-          product.originalPrice) *
-          100,
-      );
-    }
-    if (stock !== undefined) {
-      product.stock = stock;
-    }
-    await product.save();
-    return res.status(200).json({
-      success: true,
-      message: "Product updated successfully",
-      product,
-    });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-const deleteProduct = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const product = await Product.findById(id);
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-    await Product.findByIdAndDelete(id);
-    return res.status(201).json({
-      success: true,
-      message: "Product Deleted Successfully",
-    });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-const getProductBySlug = async (req, res) => {
-  try {
-    const { slug } = req.params;
-    const product = Product.find({ slug }).populate("category");
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-    return res.status(200).json({
-      success: true,
-      product,
-    });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      status: false,
-      message: error.message,
-    });
-  }
-};
-const getproductByCategory = async (req, res) => {
-  try {
-    const { slug } = req.params;
-    const category = await Category.findOne({ slug });
-    if (!category) {
       return res.status(404).json({
         success: false,
         message: "Category not found",
       });
     }
-    const product = await Products.find({ category: category.id }).populate(
-      "category",
+
+    const imageEntries = parseArray(imageInput).filter(
+      (image) => image && typeof image === "object",
     );
+
+    for (const file of uploadedFiles) {
+      const productImage = await cloudinary.uploader.upload(file.path, {
+        folder: "products",
+      });
+      imageEntries.push({
+        url: productImage.secure_url,
+        public_id: productImage.public_id,
+      });
+    }
+
+    const originalPriceNumber = Number(originalPrice);
+    const sellingPriceNumber = Number(sellingPrice);
+    const stockNumber = Number(stock);
+    if (
+      !Number.isFinite(originalPriceNumber) ||
+      !Number.isFinite(sellingPriceNumber) ||
+      !Number.isFinite(stockNumber) ||
+      originalPriceNumber <= 0 ||
+      sellingPriceNumber < 0 ||
+      stockNumber < 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Prices and stock must be valid non-negative numbers",
+      });
+    }
+
+    const product = await Product.create({
+      name,
+      slug: slugify(name, { lower: true, strict: true }),
+      shortDescription,
+      description,
+      category,
+      originalPrice: originalPriceNumber,
+      sellingPrice: sellingPriceNumber,
+      discountedPrice: Math.round(
+        ((originalPriceNumber - sellingPriceNumber) / originalPriceNumber) * 100,
+      ),
+      images: imageEntries,
+      colors: parseArray(colors),
+      sizes: parseArray(sizes),
+      stock: stockNumber,
+      totalReviews: 0,
+      totalSold: 0,
+      isFeatured: Boolean(isFeatured),
+      isTrending: Boolean(isTrending),
+      isBestSeller: Boolean(isBestSeller),
+      isNewArrival: isNewArrival === undefined ? true : Boolean(isNewArrival),
+      status,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Product created successfully",
+      product,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  } finally {
+    await Promise.all(
+      uploadedFiles.map((file) =>
+        fs.unlink(file.path).catch((error) => {
+          console.error(`Unable to remove uploaded file ${file.path}:`, error);
+        }),
+      ),
+    );
+  }
+};
+
+const getAllProducts = async (req, res) => {
+  try {
+    const products = await Product.find()
+      .populate("category")
+      .sort({ createdAt: -1 });
     if (products.length === 0) {
       return res.status(404).json({
         success: false,
@@ -358,52 +152,170 @@ const getproductByCategory = async (req, res) => {
     }
     return res.status(200).json({
       success: true,
-      totalProducts: product.length,
+      totalProducts: products.length,
+      products,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const getProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = /^[a-f\d]{24}$/i.test(id) ? { _id: id } : { slug: id };
+    const product = await Product.findOne(query).populate("category");
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+    return res.status(200).json({ success: true, product });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    const {
+      name,
+      shortDescription,
+      description,
+      category,
+      brand,
+      originalPrice,
+      sellingPrice,
+      stock,
+      colors,
+      sizes,
+      isFeatured,
+      isTrending,
+      isBestSeller,
+      isNewArrival,
+      status,
+    } = req.body;
+
+    if (category) {
+      const existingCategory = await Category.findById(category);
+      if (!existingCategory) {
+        return res.status(404).json({ success: false, message: "Category not found" });
+      }
+      product.category = category;
+    }
+    if (name) {
+      product.name = name;
+      product.slug = slugify(name, { lower: true, strict: true });
+    }
+    if (shortDescription !== undefined) product.shortDescription = shortDescription;
+    if (description !== undefined) product.description = description;
+    if (brand !== undefined) product.brand = brand;
+    if (originalPrice !== undefined) product.originalPrice = Number(originalPrice);
+    if (sellingPrice !== undefined) product.sellingPrice = Number(sellingPrice);
+    if (stock !== undefined) product.stock = Number(stock);
+    if (colors !== undefined) product.colors = parseArray(colors);
+    if (sizes !== undefined) product.sizes = parseArray(sizes);
+    if (isFeatured !== undefined) product.isFeatured = Boolean(isFeatured);
+    if (isTrending !== undefined) product.isTrending = Boolean(isTrending);
+    if (isBestSeller !== undefined) product.isBestSeller = Boolean(isBestSeller);
+    if (isNewArrival !== undefined) product.isNewArrival = Boolean(isNewArrival);
+    if (status !== undefined) product.status = status;
+
+    if (
+      originalPrice !== undefined ||
+      sellingPrice !== undefined
+    ) {
+      if (product.originalPrice <= 0 || product.sellingPrice < 0) {
+        return res.status(400).json({ success: false, message: "Invalid product prices" });
+      }
+      product.discountedPrice = Math.round(
+        ((product.originalPrice - product.sellingPrice) / product.originalPrice) * 100,
+      );
+    }
+
+    await product.save();
+    return res.status(200).json({
+      success: true,
+      message: "Product updated successfully",
       product,
     });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    console.error(error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+const deleteProduct = async (req, res) => {
+  try {
+    const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+    if (!deletedProduct) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Product deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const getProductBySlug = async (req, res) => {
+  try {
+    const product = await Product.findOne({ slug: req.params.slug }).populate("category");
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+    return res.status(200).json({ success: true, product });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const getProductByCategory = async (req, res) => {
+  try {
+    const category = await Category.findOne({ slug: req.params.slug });
+    if (!category) {
+      return res.status(404).json({ success: false, message: "Category not found" });
+    }
+    const products = await Product.find({ category: category._id })
+      .populate("category")
+      .sort({ createdAt: -1 });
+    if (products.length === 0) {
+      return res.status(404).json({ success: false, message: "No products found" });
+    }
+    return res.status(200).json({
+      success: true,
+      totalProducts: products.length,
+      products,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const searchProduct = async (req, res) => {
   try {
     const { keyword } = req.query;
-    if (!keyword) {
-      return res.status(400).json({
-        success: false,
-        message: "keyword is not defined",
-      });
+    if (!keyword || typeof keyword !== "string") {
+      return res.status(400).json({ success: false, message: "keyword is not defined" });
     }
-    const items = Product.find({
+    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const items = await Product.find({
       $or: [
-        {
-          name: {
-            $regax: keyword,
-            $options: "i",
-          },
-        },
-        {
-          shortDescription: {
-            $regax: keyword,
-            $options: "i",
-          },
-        },
-        {
-          description: {
-            $regax: keyword,
-            $options: "i",
-          },
-        },
-        {
-          colors: {
-            $regax: keyword,
-            $options: "i",
-          },
-        },
+        { name: { $regex: escapedKeyword, $options: "i" } },
+        { shortDescription: { $regex: escapedKeyword, $options: "i" } },
+        { description: { $regex: escapedKeyword, $options: "i" } },
+        { colors: { $regex: escapedKeyword, $options: "i" } },
       ],
     }).populate("category");
     return res.status(200).json({
@@ -412,13 +324,11 @@ const searchProduct = async (req, res) => {
       items,
     });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    console.error(error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
+
 module.exports = {
   createProduct,
   getAllProducts,
@@ -426,6 +336,6 @@ module.exports = {
   updateProduct,
   deleteProduct,
   getProductBySlug,
-  getproductByCategory,
+  getProductByCategory,
   searchProduct,
 };

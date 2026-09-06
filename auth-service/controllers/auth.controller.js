@@ -7,7 +7,7 @@ import { verificationOTPTemplate } from "../templates/verificationOTPTemplate.js
 import { sendEmail } from "../services/email.services.js";
 import { resetPasswordOTPTemplate } from "../templates/resetPasswordOTPTemplate.js";
 
-dotenv.config({ path: "../.env" });
+dotenv.config();
 
 export const signup = async (req, res) => {
   try {
@@ -315,7 +315,7 @@ export const changePassword = async (req, res) => {
         message: "All fields are required",
       });
     }
-    const user = await User.findOne({ _id: req.user._id });
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(400).json({
         success: false,
@@ -359,7 +359,7 @@ export const changePassword = async (req, res) => {
 
 export const getUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("-password");
+    const user = await User.findById(req.user.id).select("-password");
     if (!user) {
       return res.status(400).json({
         success: false,
@@ -368,7 +368,8 @@ export const getUser = async (req, res) => {
     }
     return res.status(200).json({
       success: true,
-      message: "User find successfully!",
+      message: "User found successfully",
+      user,
     });
   } catch (e) {
     console.log(e);
@@ -389,13 +390,27 @@ export const updateUser = async (req, res) => {
         message: "Invalid user",
       });
     }
-    if (name) user.name = name;
-    if (email) user.email = email;
+    if (name !== undefined) {
+      if (typeof name !== "string" || !name.trim()) {
+        return res.status(400).json({ success: false, message: "Name must be a non-empty string" });
+      }
+      user.name = name.trim();
+    }
+    if (email !== undefined) {
+      if (typeof email !== "string" || !email.trim()) {
+        return res.status(400).json({ success: false, message: "Email must be a non-empty string" });
+      }
+      user.email = email.trim().toLowerCase();
+    }
 
     await user.save();
     return res.status(200).json({
       success: true,
       message: "User updated successfully",
+      user: user.toObject({ transform: (_doc, ret) => {
+        delete ret.password;
+        return ret;
+      } }),
     });
   } catch (e) {
     console.log(e);
@@ -408,14 +423,14 @@ export const updateUser = async (req, res) => {
 
 export const deleteUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({
         success: false,
         message: "User not found!",
       });
     }
-    await User.deleteOne({ _id: req.user._id });
+    await User.deleteOne({ _id: req.user.id });
     res.clearCookie("token");
     return res.status(200).json({
       success: true,
