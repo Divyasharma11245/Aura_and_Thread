@@ -26,7 +26,16 @@ const createCategory = async (req, res) => {
     //     brand,
     //     gender,
     //   });
-    const categories = req.body;
+    const categories = Array.isArray(req.body) ? req.body : [req.body];
+    if (
+      categories.length === 0 ||
+      categories.some((category) => !category.name || !category.brand || !category.gender)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Each category requires name, brand, and gender",
+      });
+    }
 
     const formattedCategories = categories.map((category) => ({
       ...category,
@@ -68,7 +77,7 @@ const getAllCategories = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       success: false,
-      message: err.message,
+      message: error.message,
     });
   }
 };
@@ -147,7 +156,7 @@ const updateCategory = async (req, res) => {
 const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const category = Category.findById(id);
+    const category = await Category.findById(id);
     if (!category) {
       return res.status(404).json({
         success: false,
@@ -217,4 +226,5 @@ module.exports = {
   getCategory,
   updateCategory,
   deleteCategory,
+  searchCategory,
 };

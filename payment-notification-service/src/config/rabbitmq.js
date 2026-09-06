@@ -1,16 +1,27 @@
 const amqp = require('amqplib');
 
+const EVENT_EXCHANGE = 'aura.events';
+const PAYMENT_CREATED_ROUTING_KEY = 'payment.created';
+const EMAIL_NOTIFICATION_QUEUE = 'email_notifications';
+
 const connectRabbitMQ = async () => {
-  try {
-    const rabbitUrl = process.env.RABBITMQ_URL || 'amqp://localhost';
-    const connection = await amqp.connect(rabbitUrl);
-    const channel = await connection.createChannel();
-    console.log(' Connected to RabbitMQ');
-    return { connection, channel };
-  } catch (error) {
-    console.error(' RabbitMQ Connection Error:', error.message);
-    return null; // Return null on error so destructuring won't break the app abruptly
-  }
+  const rabbitUrl = process.env.RABBITMQ_URL || 'amqp://localhost';
+  const connection = await amqp.connect(rabbitUrl);
+  const channel = await connection.createChannel();
+  await channel.assertExchange(EVENT_EXCHANGE, 'topic', { durable: true });
+  await channel.assertQueue(EMAIL_NOTIFICATION_QUEUE, { durable: true });
+  await channel.bindQueue(
+    EMAIL_NOTIFICATION_QUEUE,
+    EVENT_EXCHANGE,
+    PAYMENT_CREATED_ROUTING_KEY,
+  );
+  console.log(' Connected to RabbitMQ');
+  return { connection, channel };
 };
 
-module.exports = { connectRabbitMQ };
+module.exports = {
+  connectRabbitMQ,
+  EVENT_EXCHANGE,
+  PAYMENT_CREATED_ROUTING_KEY,
+  EMAIL_NOTIFICATION_QUEUE,
+};

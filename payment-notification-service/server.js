@@ -4,16 +4,21 @@ const helmet = require('helmet');
 require('dotenv').config();
 
 const paymentRoutes = require('./src/routes/paymentRoutes');
+const paymentController = require('./src/controllers/paymentController');
 
 const app = express();
 
 app.use(helmet());
 app.use(cors());
 
-// IMPORTANT: Webhook route MUST receive express.raw BEFORE express.json()
-app.post('/api/payments/webhook', express.raw({ type: 'application/json' }));
+// Keep the webhook raw and register it before the JSON parser so Stripe's
+// signature can be verified against the exact request bytes.
+app.post(
+  '/api/payments/webhook',
+  express.raw({ type: 'application/json' }),
+  paymentController.handleWebhook,
+);
 
-// Regular JSON parser for all other routes
 app.use(express.json());
 
 // Routes
